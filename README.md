@@ -13,6 +13,7 @@
 |JOIN|USERNAME|Rejoindre une partie|WAIT / READY / ERROR|
 |QUIT|USERNAME|Quitter une partie|L_GAME / ERROR|
 |DO|USERNAME:ACTION|Faire une action|WAIT / END_ROUND / END_GAME / STOP / ERROR|
+|UNDEF|-|Message indéfini|ERROR|
 
 ### Serveur
 
