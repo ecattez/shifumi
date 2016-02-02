@@ -40,16 +40,17 @@ public class ServeurUDP {
 		InetAddress address;
 		int port;
 		while (true) {
+			// Réception du message
+			Message msg = receive();
 			// 	Récupération de l'adresse et du port du client
 			address = dgPacket.getAddress();
 			port = dgPacket.getPort();
-			send(buildMessage(), address, port);
+			send(buildMessageFrom(msg), address, port);
 		}
 	}
 	
-	private Message buildMessage() throws IOException {
+	private Message buildMessageFrom(Message msg) throws IOException {
 		Message toSend = new Message();
-		Message msg = receive();
 		Status status = msg.getStatus();
 		String data = msg.getData();
 		String option = msg.getOption();
