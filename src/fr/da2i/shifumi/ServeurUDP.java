@@ -61,7 +61,7 @@ public class ServeurUDP {
 		}
 		else if (round > roundMax || winnerIdx >= 0) {
 			toSend.setStatus(Status.END_GAME);
-			if (winnerIdx >= 0) {
+			if (winnerIdx >= 0 && winnerIdx < players.size()) {
 				toSend.setData(players.get(winnerIdx));
 			}
 		}
@@ -116,12 +116,13 @@ public class ServeurUDP {
 							else if (otherAction.winAgainst(action)) {
 								toSend.setData(otherName);
 							}
+							if (action != otherAction) {
+								round++;
+							}
 							break;
 						}
 					}
-					round++;
 					actions.clear();
-					
 					if (round > roundMax) {
 						toSend.setStatus(Status.END_GAME);
 					}
