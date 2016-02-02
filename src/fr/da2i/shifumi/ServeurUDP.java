@@ -9,6 +9,9 @@ public class ServeurUDP {
 	
 	private final static int _dgLength = 50;
 	
+	private String p1;
+	private String p2;
+	
 	private DatagramSocket dgSocket;
 	private DatagramPacket dgPacket;
 	private int _udpPort;
