@@ -139,7 +139,7 @@ public class ServeurUDP {
 				toSend.setData("Bad request");
 			}
 		}
-		return msg;
+		return toSend;
 	}
 
 	private Message receive() throws IOException {
