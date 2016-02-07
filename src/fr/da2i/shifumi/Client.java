@@ -48,37 +48,40 @@ public class Client {
 		client.send(new Message(Status.JOIN, username), InetAddress.getByName(host), port);
 		msgReceived = client.receive();
 		
-		System.out.println(msgReceived);
+		System.out.println("t: " + msgReceived);
 		
-		if (msgReceived.getStatus() == Status.WAIT) {
+		while (msgReceived.getStatus() == Status.WAIT) {
+		//if (msgReceived.getStatus() == Status.WAIT) {
 			System.out.println("En attente d'autres joueurs ...");
+			msgReceived = client.receive();
+			//Je ne reçois pas test ..., ça reste bloqué ici
+			System.out.println("test");
 		}
 		//Si on reçoit comme premier message READY
-		else if (msgReceived.getStatus() == Status.READY) {
+		if (msgReceived.getStatus() == Status.READY) {
 			//Tant qu'on ne recoit pas l'ordre de s'arrêter, on boucle
 			while (!(msgReceived.getStatus() == Status.END_GAME || msgReceived.getStatus() == Status.STOP)) {
+				//On reçoit un Wait, on considère que le joueur suivant n'a pas fini son action
+				while (msgReceived.getStatus() == Status.WAIT) {
+				//if (msgReceived.getStatus() == Status.WAIT) {
+					System.out.println("En attente du joueur suivant");
+					msgReceived = client.receive();
+				}
 				//On reçoit une erreur
 				if (msgReceived.getStatus() == Status.ERROR) {
 					System.out.println("Une erreur s'est produite: " + msgReceived.getData());
 				}
-				//On reçoit un Wait, on considère que le joueur suivant n'a pas fini son action
-				if (msgReceived.getStatus() == Status.WAIT) {
-					System.out.println("En attente du joueur suivant");
-				}
 				//Si tout se passe bien, on joue
-				//else {
 					if (msgReceived.getStatus() == Status.END_ROUND) {
 						System.out.println("Fin de la manche, Vainqueur: " + msgReceived.getData());
 					}
 					System.out.println("Action : (ROCK | PAPER | SCISSORS)");
 					action = sc.next();
 					client.send(new Message(Status.DO, username, action), InetAddress.getByName(host), port);
-				//}
 				msgReceived = client.receive();
 			}
 			System.out.println("Fin de la partie, Vainqueur :" + msgReceived.getData());
 		}
 		sc.close();
-		//client.send(message.toString(), InetAddress.getByName(host), port);
 	}
 }
