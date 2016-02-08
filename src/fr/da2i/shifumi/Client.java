@@ -45,25 +45,21 @@ public class Client {
 		String username = sc.next();
 		
 		//Le client tente de rejoindre une partie
-		client.send(new Message(Status.JOIN, username), InetAddress.getByName(host), port);
-		msgReceived = client.receive();
-		
-		System.out.println("t: " + msgReceived);
-		
-		while (msgReceived.getStatus() == Status.WAIT) {
-		//if (msgReceived.getStatus() == Status.WAIT) {
-			System.out.println("En attente d'autres joueurs ...");
+		do {
+			client.send(new Message(Status.JOIN, username), InetAddress.getByName(host), port);
 			msgReceived = client.receive();
-			//Je ne reçois pas test ..., ça reste bloqué ici
-			System.out.println("test");
-		}
+			System.out.println(msgReceived.getStatus());
+		} while (msgReceived.getStatus() == Status.WAIT);
+		
 		//Si on reçoit comme premier message READY
 		if (msgReceived.getStatus() == Status.READY) {
 			//Tant qu'on ne recoit pas l'ordre de s'arrêter, on boucle
+			
 			while (!(msgReceived.getStatus() == Status.END_GAME || msgReceived.getStatus() == Status.STOP)) {
 				//On reçoit un Wait, on considère que le joueur suivant n'a pas fini son action
 				while (msgReceived.getStatus() == Status.WAIT) {
 				//if (msgReceived.getStatus() == Status.WAIT) {
+					
 					System.out.println("En attente du joueur suivant");
 					msgReceived = client.receive();
 				}

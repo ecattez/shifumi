@@ -51,7 +51,10 @@ public class Message {
 
 	@Override
 	public String toString() {
-		String str = status.toString();
+		String str = "";
+		if (status != null) {
+			str += status.toString();
+		}
 		if (data != null) {
 			str += ":" + data;
 		}

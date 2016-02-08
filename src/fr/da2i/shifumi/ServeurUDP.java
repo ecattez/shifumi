@@ -66,6 +66,8 @@ public class ServeurUDP {
 			}
 		}
 		else if (status == Status.JOIN) {
+			System.out.println(playerMax + "\t" + players.size());
+			System.out.println(players.contains(data));
 			if (players.size() == playerMax) {
 				if (players.contains(data)) {
 					toSend.setStatus(Status.READY);
@@ -76,13 +78,18 @@ public class ServeurUDP {
 					toSend.setData("Server is full");
 				}
 			}
-			else if (players.size() == playerMax - 1) {
+			else if (!players.contains(data)) {
 				players.add(data);
-				toSend.setStatus(Status.READY);
-				toSend.setData("Let's play a game");
+				if (players.size() == playerMax) {
+					toSend.setStatus(Status.READY);
+					toSend.setData("Let's play a game");
+				}
+				else {
+					toSend.setStatus(Status.WAIT);
+					toSend.setData("Waiting for one more player");
+				}
 			}
 			else {
-				players.add(data);
 				toSend.setStatus(Status.WAIT);
 				toSend.setData("Waiting for one more player");
 			}
