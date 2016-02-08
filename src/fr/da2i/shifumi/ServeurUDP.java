@@ -17,26 +17,27 @@ public class ServeurUDP {
 	
 	private List<String> players;
 	private Map<String, Action> actions;
+	private Map<String, Integer> scores;
 	private int round;
 	private int roundMax;
 	private int playerMax;
-	private int winnerIdx;
 	
 	private DatagramSocket dgSocket;
 	private DatagramPacket dgPacket;
+	
+	private Status currentStatus;
 	
 	public ServeurUDP(int _udpPort) throws IOException {
 		dgSocket = new DatagramSocket(_udpPort);
 		players = new ArrayList<>();
 		actions = new HashMap<>();
+		scores = new HashMap<>();
 		round = 1;
 		roundMax = 3;
 		playerMax = 2;
-		winnerIdx = -1;
 	}
 
 	private void go() throws IOException {
-		
 		InetAddress address;
 		int port;
 		while (true) {
@@ -49,68 +50,121 @@ public class ServeurUDP {
 		}
 	}
 	
+	/* Mauvaise requête */
+	private Message badRequest(Message toSend) {
+		toSend.setStatus(Status.ERROR);
+		toSend.setData("Bad request");
+		return toSend;
+	}
+	
+	/* Le serveur est complet */
+	private Message serverFull(Message toSend) {
+		toSend.setStatus(Status.ERROR);
+		toSend.setData("Server is full");
+		return toSend;
+	}
+	
+	/* Le client n'est pas en jeu */
+	private Message notInGame(Message toSend) {
+		toSend.setStatus(Status.ERROR);
+		toSend.setData("not in game");
+		return toSend;
+	}
+	
+	/* Le serveur est prêt pour le jeu */
+	private Message ready(Message toSend) {
+		toSend.setStatus(Status.READY);
+		toSend.setData("I'm ready");
+		return toSend;
+	}
+	
+	/* Le serveur attend des demandes */
+	private Message wait(Message toSend) {
+		toSend.setStatus(Status.WAIT);
+		toSend.setData("I'm waiting");
+		return toSend;
+	}
+	
+	/* Attente en fin du round */
+	private Message waitRound(Message toSend) {
+		currentStatus = Status.END_ROUND;
+		toSend.setStatus(Status.END_ROUND);
+		toSend.setData(scores.toString());
+		return toSend;
+	}
+	
+	/* Round suivant */
+	private Message nextRound(Message toSend) {
+		currentStatus = Status.READY;
+		toSend.setStatus(Status.READY);
+		toSend.setData("Next round");
+		return toSend;
+	}
+	
+	/* Fin du jeu */
+	private Message endGame(Message toSend) {
+		currentStatus = Status.END_GAME;
+		toSend.setStatus(Status.END_GAME);
+		toSend.setData(scores.toString());
+		return toSend;
+	}
+	
+	/* Construction du message à renvoyer au client */
 	private Message buildMessageFrom(Message msg) throws IOException {
 		Message toSend = new Message();
 		Status status = msg.getStatus();
 		String data = msg.getData();
 		String option = msg.getOption();
 		
+		// Le message est incorrect
 		if (status == Status.UNDEF) {
-			toSend.setStatus(Status.ERROR);
-			toSend.setData("Bad request");
+			return badRequest(toSend);
 		}
-		else if (round > roundMax || winnerIdx >= 0) {
-			toSend.setStatus(Status.END_GAME);
-			if (winnerIdx >= 0 && winnerIdx < players.size()) {
-				toSend.setData(players.get(winnerIdx));
-			}
+		
+		// La partie est finie
+		if (round > roundMax || currentStatus == Status.END_GAME) {
+			return endGame(toSend);
 		}
-		else if (status == Status.JOIN) {
-			System.out.println(playerMax + "\t" + players.size());
-			System.out.println(players.contains(data));
+		
+		// Le client tente de joindre la partie
+		if (status == Status.JOIN) {
 			if (players.size() == playerMax) {
-				if (players.contains(data)) {
-					toSend.setStatus(Status.READY);
-					toSend.setData("Let's play a game");
-				}
-				else {
-					toSend.setStatus(Status.ERROR);
-					toSend.setData("Server is full");
-				}
+				return (players.contains(data)) ? ready(toSend) : serverFull(toSend);
 			}
-			else if (!players.contains(data)) {
+			if (!players.contains(data)) {
 				players.add(data);
-				if (players.size() == playerMax) {
-					toSend.setStatus(Status.READY);
-					toSend.setData("Let's play a game");
-				}
-				else {
-					toSend.setStatus(Status.WAIT);
-					toSend.setData("Waiting for one more player");
-				}
+				scores.put(data, 0);
+				return (players.size() == playerMax) ? ready(toSend) : wait(toSend);
 			}
-			else {
-				toSend.setStatus(Status.WAIT);
-				toSend.setData("Waiting for one more player");
+			return wait(toSend);
+		}
+		
+		// Les prochaines étapes nécessitent que le client est déjà joint la partie au préalable
+		if (!players.contains(data)) {
+			return notInGame(toSend);
+		}
+		
+		// Le client abandonne la partie
+		if (status == Status.QUIT) {
+			return endGame(toSend);
+		}
+		
+		// Le client effectue une action
+		if (status == Status.DO) {
+			if (!Action.isAction(option)) {
+				return badRequest(toSend);
 			}
-		}
-		else if (!players.contains(data)) {
-			toSend.setStatus(Status.ERROR);
-			toSend.setData("Not in game");
-		}
-		else if (status == Status.QUIT) {
-			int looser = players.indexOf(data);
-			winnerIdx = (looser == 0) ? 1 : 0;
-			toSend.setStatus(Status.END_GAME);
-			toSend.setData(players.get(winnerIdx));
-		}
-		else if (status == Status.DO) {
+			if (currentStatus == Status.END_ROUND) {
+				actions.remove(data);
+				return (actions.size() == 0) ? nextRound(toSend) : waitRound(toSend);
+			}
+			
+			Action action;
 			if (actions.containsKey(data)) {
-				toSend.setStatus(Status.WAIT);
-				toSend.setData("Waiting for other player action");
+				action = actions.get(data);
 			}
-			else if (option.equals("ROCK") || option.equals("PAPER") || option.equals("SCISSORS")) {
-				Action action = Action.valueOf(option);
+			else if (!Action.isReset(option)) {
+				action = Action.valueOf(option);
 				actions.put(data, action);
 				if (actions.size() == playerMax) {
 					for (Map.Entry<String, Action> entry : actions.entrySet()) {
@@ -118,9 +172,11 @@ public class ServeurUDP {
 						if (!otherName.equals(data)) {
 							Action otherAction = entry.getValue();
 							if (action.winAgainst(otherAction)) {
+								scores.put(data, scores.get(data) + 1);
 								toSend.setData(data);
 							}
 							else if (otherAction.winAgainst(action)) {
+								scores.put(otherName, scores.get(otherName) + 1);
 								toSend.setData(otherName);
 							}
 							if (action != otherAction) {
@@ -129,25 +185,11 @@ public class ServeurUDP {
 							break;
 						}
 					}
-					actions.clear();
-					if (round > roundMax) {
-						toSend.setStatus(Status.END_GAME);
-					}
-					else {
-						toSend.setStatus(Status.END_ROUND);
-					}
-				}
-				else {
-					toSend.setStatus(Status.WAIT);
-					toSend.setData("Waiting for one more player");
+					return (round > roundMax) ? endGame(toSend) : waitRound(toSend);
 				}
 			}
-			else {
-				toSend.setStatus(Status.ERROR);
-				toSend.setData("Bad request");
-			}
-		}
-		return toSend;
+		}		
+		return wait(toSend);
 	}
 
 	private Message receive() throws IOException {
@@ -158,7 +200,6 @@ public class ServeurUDP {
 	}
 	
 	private void send(Message msg, InetAddress address, int port) throws IOException {
-		System.out.println(msg);
 		byte[] buffer = msg.toString().getBytes();
 		dgPacket = new DatagramPacket(buffer, 0, buffer.length);
 		dgPacket.setAddress(address);
